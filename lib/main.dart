@@ -1,8 +1,24 @@
-import 'dart:ui';
 
+import  'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/auth_service.dart';
+import 'package:flutter_application_1/create_post.dart';
+import 'package:firebase_database/firebase_database.dart';
+import 'package:firebase_database/ui/firebase_animated_list.dart';
 
-void main() {
+DatabaseReference? DB;
+Query? posts;
+Query? follows;
+String userKey = "";
+Map loggedUser = {}; 
+bool initFollow = true;
+
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
   runApp(MyApp());
 }
 
@@ -33,7 +49,7 @@ class PM{
 }
 
 class User{
-  bool loggedIn = true;
+  bool loggedIn = false;
   Image? avatar; //???
   String? fav ="Toadstool";
   String? name = "Username";
@@ -119,6 +135,20 @@ class PMuserNotifier extends ValueNotifier<PMuser>{
   }
 }
 
+class  UserNotFound{
+  ValueNotifier<bool> trigger = ValueNotifier(false);
+  UserNotFound({required this.trigger});
+}
+class UserNotFoundNotifier extends ValueNotifier<UserNotFound>{
+  UserNotFoundNotifier({required UserNotFound value}): super(value);
+
+  void change(bool trigger){
+    value.trigger.value = trigger;
+    notifyListeners();
+  }
+}
+
+UserNotFoundNotifier unfn = UserNotFoundNotifier(value: UserNotFound(trigger: ValueNotifier(false)));
 SwitchInforNotifier si = SwitchInforNotifier(value: SwitchInfo(tryb: ValueNotifier(false)));
 FollowedModeNotifier fn = FollowedModeNotifier(value: FollowedMode(tryb: ValueNotifier<String>("Posts")));
 SwitchNotifier sn =SwitchNotifier(value: Switch(tryb: ValueNotifier<String>("My Profile")));
@@ -141,7 +171,9 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      home:Kolumna4()
+      //home:Kolumna4()
+      home:LoginPage()//AuthService().handleAuthState(context)
+
       );
     
   }
@@ -155,15 +187,37 @@ class MyApp extends StatelessWidget {
 
 
 class LoginPage extends StatefulWidget{
-  const LoginPage({super.key});
+  final bool popUp;
+  LoginPage([this.popUp=false]);
   @override
   State<LoginPage> createState() => _LoginPage();
 }
 
+  
 
 class _LoginPage extends State<LoginPage>{
   final myLoginController = TextEditingController();
   final myPasswordController = TextEditingController();
+
+  void showAlert(){
+    showDialog(
+      context: context, 
+      builder: (BuildContext context) => AlertDialog(
+        title: const  Text('Missing Data'),
+        content: const Text('Given person is not registered'),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.pop(context,"OK"),
+            child: const Text("OK"))
+        ],
+      ));
+  }
+
+  @override
+  void initState(){
+    super.initState();
+    if(widget.popUp==true){Future.delayed(Duration.zero, () => showAlert());}
+  }
 
   @override
   void dispose(){
@@ -222,6 +276,7 @@ class _LoginPage extends State<LoginPage>{
                 )))),
                 ButtonLogin("Log in","PR",myLoginController,myPasswordController),
                 ButtonLogin("Register","R"),
+                ButtonLogin("Google", "G")
               ],
             )
         ]),
@@ -261,16 +316,19 @@ class ProfilePage extends StatelessWidget{
                   children: [
                     Padding(
                       padding: EdgeInsets.only(left:20),
-                      child: CircleAvatar(
-                        backgroundImage: AssetImage("assets/defaultAvatar.jpg"),
+                      child: CircleAvatar(         
+                        backgroundImage: NetworkImage(FirebaseAuth.instance.currentUser!.photoURL!),
+                        //backgroundImage: AssetImage("assets/defaultAvatar.jpg"),
                       )
                     ),
                     Padding(
                       padding: EdgeInsets.only(left:5),
-                      child:  Text("@${user.name}")),
+                      //child:  Text("@${user.name}")),
+                      //child: Text("@name")),
+                      child:  Text("@"+FirebaseAuth.instance.currentUser!.displayName!),),
                       
                     Padding(
-                      padding: EdgeInsets.only(left: 175),
+                      padding: EdgeInsets.only(left: 100),
                       child: PopupMenuButton(
                         icon: Icon(Icons.settings, color: Colors.white),
                         
@@ -286,12 +344,15 @@ class ProfilePage extends StatelessWidget{
                         ],
                         onSelected: (int newValue){
                           if(newValue == 1){
+                           
+                            AuthService().signOut();
                             Navigator.push(
                               context,
                               MaterialPageRoute(
                                 builder: (context) => LoginPage(),
                                 )
                             );
+                           
                           }
                           else{
                             sn.value.tryb.value = "Edit";
@@ -350,15 +411,28 @@ class InfoButton extends StatefulWidget{
 }
 
 class _InfoButton extends State<InfoButton>{
+  
+  void update(String name)async{
+    DatabaseReference ref = FirebaseDatabase.instance.ref().child('users').child(userKey);
+    await ref.update({
+      name:widget.editor.text,
+    });
+  }
+
+  String toUpdate = "";
   @override
   Widget build(BuildContext context){
     return GestureDetector(
       onTap: (){
         if(widget.mode=="F"){
-          user.fav = widget.editor.text;
+          toUpdate  = "favMushroom";
+          loggedUser['favMushroom'] = widget.editor.text;
+          update('favMushroom');
         }
         else if(widget.mode == "D"){
-          user.description = widget.editor.text;
+          toUpdate  = "description";
+          loggedUser["description"] = widget.editor.text;
+          update("description");
         }
         si.value.tryb.value = true;
       },
@@ -373,6 +447,51 @@ class _InfoButton extends State<InfoButton>{
   }
 }
 
+
+
+
+class FadingText extends StatefulWidget{
+  final Widget child;
+  FadingText({required  this.child});
+  @override
+  createState() => FadingTextState();
+}
+
+
+class FadingTextState extends State<FadingText> with SingleTickerProviderStateMixin{
+  double opacity = 0.0;
+  int counter = 0; 
+  AnimationController? _controller;
+  Animation<double>? _animation;
+
+  @override
+  void initState(){
+    counter++;
+    _controller = AnimationController(
+      vsync: this,
+      duration: Duration(seconds: 5),
+      );
+    _animation = Tween(
+      begin: 1.0,
+      end: 0.0,
+      ).animate(_controller!);
+  }
+  @override
+  dispose(){
+    _controller!.dispose();
+    super.dispose();
+  }
+  @override
+  Widget build(BuildContext context){
+    _controller!.reset();
+    _controller!.forward();
+    
+    
+    return FadeTransition(opacity: _animation!,child:widget.child);
+  }
+}
+
+
 class Display extends StatefulWidget{
   const Display({super.key});
   @override
@@ -380,9 +499,44 @@ class Display extends StatefulWidget{
   
 }
 
+
+Query _query = FirebaseDatabase.instance.ref().child('users').child(userKey).child('posts');
+Key _key = Key(DateTime.now().millisecondsSinceEpoch.toString());
+String mode = 'P';
+
 class _Display extends State<Display>{
   final favTextController = TextEditingController();
   final infoTextController = TextEditingController();
+  TextEditingController followedName = TextEditingController();
+  double opacity = 0.0;
+  
+
+  //checkNameFunc
+  void checkIfNameExists() async{
+    DatabaseEvent event = await FirebaseDatabase.instance.ref().child('users').orderByChild('name').equalTo(followedName.text).once();
+    if(event.snapshot.exists){
+      final subString = getUid(event.snapshot.value.toString());
+      DatabaseEvent secEvent = await FirebaseDatabase.instance.ref().child('users').child(userKey).child('follows').orderByChild('name').equalTo(followedName.text).once();
+      if(secEvent.snapshot.exists == false){
+        DatabaseReference ref = FirebaseDatabase.instance.ref().child('users')
+        .child(userKey).child('follows');
+        var followData = {
+        'name': followedName.text,
+        'rid': subString
+        };
+        ref.push().set(followData);
+      }
+      initFollow = true;
+      Navigator.of(context).pop();
+    }
+    else{
+      initFollow = false;
+      unfn.value.trigger.value = !unfn.value.trigger.value;
+    
+    }
+
+  }
+
 
   @override
   void dispose(){
@@ -464,7 +618,7 @@ class _Display extends State<Display>{
                                 filled: true,
                                 fillColor: Colors.white,
                                 border: OutlineInputBorder(),
-                                hintText: "   ${user.fav}",
+                                hintText: "   ${loggedUser['favMushroom']}",
                               ),
                             );
                           }
@@ -528,7 +682,7 @@ class _Display extends State<Display>{
                                 filled: true,
                                 fillColor: Colors.white,
                                 border: OutlineInputBorder(),
-                                hintText: "   ${user.description}",
+                                hintText: "   ${loggedUser['description']}",
                               ),
                             );
                         }
@@ -558,15 +712,119 @@ class _Display extends State<Display>{
         );
       }
       default: {
-        return ListView(
-          children: [
-            if(sn.value.tryb.value == "My Profile") for(int i = 0; i < user.myPosts.length; i++)Post(user.myPosts[i].title,user.myPosts[i].description,user.myPosts[i].comments)
-            else if(sn.value.tryb.value == "Follows") for(int i = 0; i < user.follows.length; i++) FollowUser(user.follows[i])
-          ]
-        );
-      }
+        setState(() {
+          if(sn.value.tryb.value ==  "My Profile"){
+            _query = FirebaseDatabase.instance.ref().child('users').child(userKey).child('posts');
+            _key = Key(DateTime.now().millisecondsSinceEpoch.toString());
+            mode ='P';
+          }
+          else{
+            _query = FirebaseDatabase.instance.ref().child('users').child(userKey).child('follows');
+            _key = Key(DateTime.now().millisecondsSinceEpoch.toString());
+            mode  = 'F';
+          }
+        });
+
+        return Column(
+        children: [
+          Container(child:
+          Expanded(child:
+          
+          FirebaseAnimatedList(
+            shrinkWrap: true,
+            physics: ClampingScrollPhysics(),
+            query: _query,
+            key: _key,
+            itemBuilder: (BuildContext context,DataSnapshot snapshot,Animation animation,int index) {
+              Map post = snapshot.value as Map;
+              post['key'] = snapshot.key;
+              return Post(post,mode); 
+            })
+            
+          )
+        ),
+        
+         Padding(
+          padding: const EdgeInsets.fromLTRB(0, 3, 0, 3),
+          child: GestureDetector(
+            onTap: (){
+              if(sn.value.tryb.value == "My Profile"){
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => postPage())
+              );
+              }
+              else{
+              showDialog(
+                context: context, 
+                builder: (BuildContext context) => AlertDialog(
+                  title: const Text("Name of a person"),
+                  content:
+                  Container(
+                    height: 100,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [TextFormField(
+                    controller: followedName,
+                    decoration: InputDecoration(
+                      filled: true,
+                      fillColor: Colors.white,
+                      hintText: 'Full name'
+                    ),
+                  ),  
+                  ValueListenableBuilder(
+                    valueListenable: unfn.value.trigger, 
+                    builder: (BuildContext context, bool value, Widget? child){
+                      return !initFollow?FadingText(child: Text("Given  person is  not  registered",style:TextStyle(color: Colors.red)),)
+                      :Text("",style:TextStyle(color: Colors.white));
+                    }
+                    ),
+                  
+                  ])),
+                  actions: <Widget>[
+                    TextButton(
+                      onPressed: () {
+                        checkIfNameExists();
+                        //check if name exists
+                      },
+                      child: const Text("FOLLOW"))
+                      ,TextButton(
+                        onPressed: (){
+                          initFollow = true;
+                          Navigator.of(context).pop();
+                        },
+                        child: const Text("BACK"))
+                  ],
+                )
+                );
+              
+              }
+            },
+            child: Container(
+              height: 50,
+              width: MediaQuery.of(context).size.width-100,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                border: Border.all(
+                  color: Colors.black,
+                  width: 5,
+                ),
+                borderRadius: BorderRadius.circular(10)
+              ),
+              child: Align(
+                alignment: Alignment.center,
+                child: Text(sn.value.tryb.value=="My Profile"?"Create a Post":"Follow Somebody",
+                textAlign: TextAlign.center,)
+              ),
+            )
+          )
+        ),
+      
+      
+        ]
+          );
+      }}
     }
-  }
 }
 
 //
@@ -714,49 +972,78 @@ class RegisterButton extends StatefulWidget{
 }
 
 class _RegisterButton extends State<RegisterButton>{
+  
+  void Register() async{
+    await AuthService().signInWithGoogle(context);
+    
+    DatabaseReference? db = FirebaseDatabase.instance.ref().child('users');
+    var userData = {
+      'name': FirebaseAuth.instance.currentUser!.displayName,
+      'uid': FirebaseAuth.instance.currentUser!.uid,
+      'favMushroom':'',
+      'dateOfBirth':'',
+      'description':'',
+      // 'posts': {},
+      // 'follows': {},
+      // 'pms': {},
+    };
+    db.push().set(userData);
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ProfilePage(),
+        )
+    );
+  }
+  
+  
   @override
   Widget build(BuildContext context){
     return Padding(
       padding: EdgeInsets.fromLTRB(0, 16, 0, 16),
       child: GestureDetector(
         onTap: (){
-          if(widget.name.text == "" || widget.password == "" || widget.passwordc == ""){
-            showDialog(
-                context: context, 
-                builder: (BuildContext context) => AlertDialog(
-                  title: const Text("ERROR"),
-                  content: const Text("Fill in all the fields"),
-                  actions: <Widget>[
-                    TextButton(
-                      onPressed: () => Navigator.pop(context,"OK"),
-                      child: const Text("OK"))
-                  ],
-                )
-                );
-              return; 
-          }
-          if(widget.password.text != widget.passwordc.text){
-            showDialog(
-                context: context, 
-                builder: (BuildContext context) => AlertDialog(
-                  title: const Text("ERROR"),
-                  content: const Text("Passwords must match"),
-                  actions: <Widget>[
-                    TextButton(
-                      onPressed: () => Navigator.pop(context,"OK"),
-                      child: const Text("OK"))
-                  ],
-                )
-                );
-              return; 
-          }
+          // if(widget.name.text == "" || widget.password == "" || widget.passwordc == ""){
+          //   showDialog(
+          //       context: context, 
+          //       builder: (BuildContext context) => AlertDialog(
+          //         title: const Text("ERROR"),
+          //         content: const Text("Fill in all the fields"),
+          //         actions: <Widget>[
+          //           TextButton(
+          //             onPressed: () => Navigator.pop(context,"OK"),
+          //             child: const Text("OK"))
+          //         ],
+          //       )
+          //       );
+          //     return; 
+          // }
+          // if(widget.password.text != widget.passwordc.text){
+          //   showDialog(
+          //       context: context, 
+          //       builder: (BuildContext context) => AlertDialog(
+          //         title: const Text("ERROR"),
+          //         content: const Text("Passwords must match"),
+          //         actions: <Widget>[
+          //           TextButton(
+          //             onPressed: () => Navigator.pop(context,"OK"),
+          //             child: const Text("OK"))
+          //         ],
+          //       )
+          //       );
+          //     return; 
+          // }
           //TODO: Registerfunc
-          Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => ProfilePage(),
-                )
-            );
+          Register();
+          
+
+
+          // Navigator.push(
+          //     context,
+          //     MaterialPageRoute(
+          //       builder: (context) => ProfilePage(),
+          //       )
+          //   );
         },
         child: Container(
           height: 50,
@@ -832,7 +1119,23 @@ class ButtonLogin extends StatefulWidget{
   _ButtonLogin createState() => _ButtonLogin();
 }
 
+
 class _ButtonLogin extends State<ButtonLogin>{
+  
+  void logIn() async {
+    Widget path= await AuthService().signInWithGoogle(context);
+    if(path.runtimeType.toString()!="LoginPage"){
+      getKey();
+    }
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => path,
+        )
+    );
+  }
+
+  
   @override
   Widget build(BuildContext context){
     return 
@@ -841,7 +1144,11 @@ class _ButtonLogin extends State<ButtonLogin>{
       child:GestureDetector(
         
         onTap: (){
-          if(widget.mode == "R"){
+          if(widget.mode == 'G'){
+         
+            logIn();
+          }
+          else if(widget.mode == "R"){
             Navigator.push(
               context,
               MaterialPageRoute(
@@ -866,12 +1173,14 @@ class _ButtonLogin extends State<ButtonLogin>{
                 );
                 return;
             }
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => ProfilePage(),
-                )
-            ); 
+
+            
+            // Navigator.push(
+            //   context,
+            //   MaterialPageRoute(
+            //     builder: (context) => ProfilePage(),
+            //     )
+            // ); 
           }
         },
         
@@ -927,7 +1236,7 @@ class _ButtonWidget extends State<ButtonWidget>{
             // }
             // appInfo.currentPage = "Social";
             var destination;
-            if(user.loggedIn){
+            if(FirebaseAuth.instance.currentUser != null){
               destination = ProfilePage();
             }
             else{
@@ -1025,11 +1334,14 @@ class _ProfileButton extends State<ProfileButton>{
 }
 
 class Post extends StatefulWidget{
-  final String? title;
-  final AssetImage image = AssetImage("assets/shrooms.jpg");
-  final String? description;
-  List<Comment> comments;
-  Post(this.title,this.description,this.comments);
+  //final String? title;
+  //final AssetImage image = AssetImage("assets/shrooms.jpg");
+  //final String? description;
+  //List<Comment> comments;
+  //Post(this.title,this.description,this.comments);
+  final Map post;
+  final String mode;
+  Post(this.post,this.mode);
 
   @override
   _Post createState() => _Post();
@@ -1057,6 +1369,7 @@ class _Post extends State<Post>{
         )
       ),
       child:
+      widget.mode == "P"?
       Column(
         children: [
           
@@ -1067,101 +1380,164 @@ class _Post extends State<Post>{
               decoration: BoxDecoration(
                 color: Colors.white
               ),
-                child:Text(
-                '${widget.title}',
-                style: TextStyle(
-                  fontSize: 20
-                ),
-                ),
+                child:Row(children:[
+                  Expanded(
+                  flex:8,
+                  child:Text(
+                  //'${widget.title}',
+                  widget.post['title'],
+                  style: TextStyle(
+                    fontSize: 20
+                  ),
+                  ),),
+                sn.value.tryb.value == 'My Profile'?Expanded(
+                  flex: 1,
+                 child: GestureDetector(
+                  onTap: (){
+                    FirebaseDatabase.instance.ref().child('users').child(userKey).child('posts').child(widget.post['key']).remove();
+                  },
+                  child: Icon(Icons.delete_outlined),
+                )):Text("",style: TextStyle(color:Colors.transparent),)
+                ]),
               ),
               Container(
+                height: 250,
                 width: MediaQuery.of(context).size.width-75,
-                child:Image.asset("assets/forest.jpg",fit: BoxFit.fill,),
+                //child:Image.asset("assets/forest.jpg",fit: BoxFit.fill,),
+                child: Image.network(
+                  widget.post['url'],
+                  fit:BoxFit.fill,
+                ),
               ),
               Container(
                 width: MediaQuery.of(context).size.width-75,
 
                 child: Text(
-                  "${widget.description}",
+                  //"${widget.description}",
+                  widget.post['description'],
                   style: TextStyle(
                     fontSize: 20
                   )
                 )
               ),
-             Container(
-              child: Padding(padding: EdgeInsets.fromLTRB(25, 10, 0, 0),child:ListView.builder(
-                scrollDirection: Axis.vertical,
-                shrinkWrap: true,
-                itemCount: widget.comments.length,
-                itemBuilder: (context, index){
-                  return Text("${widget.comments[index].name}: ${widget.comments[index].value}");
-                },
-              )
-             ))
+            // TODO: Komentarze
+            //  Container(
+            //   child: Padding(padding: EdgeInsets.fromLTRB(25, 10, 0, 0),child:ListView.builder(
+            //     scrollDirection: Axis.vertical,
+            //     shrinkWrap: true,
+            //     itemCount: widget.comments.length,
+            //     itemBuilder: (context, index){
+            //       return Text("${widget.comments[index].name}: ${widget.comments[index].value}");
+            //     },
+            //   )
+            //  ))
           
         ],
-    ))]));
+    ):
+    FollowUser(widget.post),
+    )]));
   }
 }
 
 class FollowUser extends StatefulWidget{
-  final String name;
-  FollowUser(this.name);
+  final Map userData;
+  FollowUser(this.userData);
 
   @override
   _FollowUser createState() => _FollowUser();
 }
 
 class _FollowUser extends State<FollowUser>{
+  Map FUser = {};
   @override
   Widget build(BuildContext context){
-    return Padding(
-      padding: EdgeInsets.only(top: 10),
-      child: Row(
+    return
+    Padding( 
+    padding: EdgeInsets.fromLTRB(0, 5, 0, 5),
+    child:Row(
         mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            GestureDetector(
-
-              onTap: () {
-                //Get userData
-                
-                setState(() {
-                  followedUser.name = widget.name;
-                });
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => FollowedProfile(),
-                    )
-                );
-              },
-
-              child:Container(
-              width: MediaQuery.of(context).size.width-25,
-              color: Colors.white,
+            
+              Container(
+              width: MediaQuery.of(context).size.width-40,             
               child: Row(
                 children: [
-                  Padding(
-                    padding: EdgeInsets.only(left:20),
-                    child: CircleAvatar(
-                      backgroundImage: AssetImage("assets/defaultAvatar.jpg"),
+                  Padding(padding: EdgeInsets.only(left:20),
+                  child:GestureDetector(
+                    onTap: () async{
+                      await downloadData(widget.userData['rid']);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => FollowedProfile(FUser,widget.userData['rid']),
+                          )
+                      );
+                    },
+                    child:Expanded(
+                      
+                      child: Row(children: [
+                    CircleAvatar(backgroundImage: AssetImage("assets/defaultAvatar.jpg"),),
+                    Padding(
+                      padding: EdgeInsets.only(left:5),
+                      child:Text("@${widget.userData['name']}")
                     )
-                  ),
-                  Padding(
-                    padding: EdgeInsets.only(left:5)),
-                    Text("@${widget.name}")
+                  ],)),),),
+                  Expanded(
+                    
+                    child: GestureDetector(
+                      onTap: (){
+                        FirebaseDatabase.instance.ref().child('users').child(userKey).child('follows').child(widget.userData['key']).remove();
+                      },
+                      child:Padding(padding: EdgeInsets.only(right:10),child:Align(child:Icon(Icons.delete_outlined),
+                      alignment: Alignment.centerRight,)
+                      )
+                      )
+                    
+                  )
+                  
+                  
+                  // Padding(
+                  //   padding: EdgeInsets.only(left:20),
+                  //   child: CircleAvatar(
+                  //     backgroundImage: AssetImage("assets/defaultAvatar.jpg"),
+                  //   )
+                  // ),
+                  // Padding(
+                  //   padding: EdgeInsets.only(left:5)),
+                  //   Text("@${widget.userData['name']}")
                 ],
               ),
             )
-            )
-          ],)
-    );
+            
+          ]
+          )
+          );
+    
+  }
+  Future downloadData(String klucz)async{
+    final  event = await FirebaseDatabase.instance.ref().child('users').child(klucz).once();
+    if(event.snapshot.exists){
+      FUser = event.snapshot.value as  Map;
+    }  
   }
 }
 
+class FollowedProfile extends StatefulWidget{
+  final Map mapa;
+  final String klucz;
+  FollowedProfile(this.mapa,this.klucz);
+  @override
+  FollowedProfileState createState() => FollowedProfileState();
+}
 
-class FollowedProfile extends StatelessWidget{
+class FollowedProfileState extends State<FollowedProfile>{
+
+  @override
+  void initState() {
+    super.initState();
+  }
+
   @override
   Widget build(BuildContext context){
     return Container(
@@ -1193,10 +1569,10 @@ class FollowedProfile extends StatelessWidget{
                     ),
                     Padding(
                       padding: EdgeInsets.only(left:5),
-                      child: Text("${followedUser.name}"),
+                      child: Text("@"+widget.mapa['name']),
                     ),
                     Padding(//TODO: fix button padding
-                      padding: EdgeInsets.only(left:200),
+                      padding: EdgeInsets.only(left:150),
                       child: IconButton(
                         onPressed: (){
                           Navigator.pop(context);
@@ -1230,22 +1606,33 @@ class FollowedProfile extends StatelessWidget{
                 child: ValueListenableBuilder(
                   valueListenable: fn.value.tryb,
                   builder: (BuildContext context, String value, Widget? child){
+                    Query followQuery = FirebaseDatabase.instance.ref().child('users').child(widget.klucz).child('posts');
                     return Container(
                       width: MediaQuery.of(context).size.width,
                       color: Colors.blueAccent,
                       child: fn.value.tryb.value == "Posts"?
-                        ListView(
+                        FirebaseAnimatedList(
+                          shrinkWrap: true,
+                          physics: ClampingScrollPhysics(),
+                          query: followQuery,
+                          itemBuilder: (BuildContext context, DataSnapshot  snapshot, Animation animation, int index){
+                            Map post = snapshot.value as Map;
+                            post['key'] = snapshot.key;
+                            return Post(post,"P");
+                          },
+                        )
+                        :Column(
                           children: [
-                            for(int i=0;i<followedUser.posts.length;i++)Post(followedUser.posts[i].title,followedUser.posts[i].description,followedUser.posts[i].comments),
-                          ],
-                        ):Column(
-                          children: [
+                            //TODO: ScrollView
                             FollowText("Username:","M"),
-                            FollowText(followedUser.name),
+                            FollowText(widget.mapa['name']),
                             FollowText("Date of Birth:","M"),
-                            FollowText(followedUser.dateOfBirth),
+                            FollowText(widget.mapa['dateOfBirth']),
+                            FollowText("Favourite Mushroom","M"),
+                            FollowText(widget.mapa['favMushroom']),
                             FollowText("Description:","M"),
-                            FollowText(followedUser.description,"B"),
+                            FollowText(widget.mapa['description'],"B"),
+                            
                           ],),
                     );
                   },

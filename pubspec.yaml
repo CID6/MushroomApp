@@ -47,7 +47,13 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^2.0.0
-
+  firebase_core:
+  firebase_auth:
+  google_sign_in:
+  firebase_storage: ^11.2.2
+  image_picker: ^0.8.7+5
+  firebase_database: ^10.2.2
+  instant: ^0.5.1
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
 
