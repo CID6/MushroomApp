@@ -4,9 +4,11 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/auth_service.dart';
+import 'package:flutter_application_1/comment_section.dart';
 import 'package:flutter_application_1/create_post.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_database/ui/firebase_animated_list.dart';
+import 'package:flutter_application_1/private_messaging.dart';
 
 DatabaseReference? DB;
 Query? posts;
@@ -120,20 +122,6 @@ class FollowedModeNotifier extends ValueNotifier<FollowedMode>{
   }
 }
 
-class PMuser{
-  ValueNotifier<String> tryb = ValueNotifier(user.pms[0].who);
-  PMuser({required this.tryb});
-}
-class PMuserNotifier extends ValueNotifier<PMuser>{
-  PMuserNotifier({required PMuser value}): super(value);
-
-  void change(String tryb){
-    if(value.tryb.value!=tryb){
-      value.tryb.value = tryb;
-      notifyListeners();
-    }
-  }
-}
 
 class  UserNotFound{
   ValueNotifier<bool> trigger = ValueNotifier(false);
@@ -148,12 +136,13 @@ class UserNotFoundNotifier extends ValueNotifier<UserNotFound>{
   }
 }
 
+ConvNotifier cn = ConvNotifier(value: Conv(tryb: ValueNotifier(false)));
 UserNotFoundNotifier unfn = UserNotFoundNotifier(value: UserNotFound(trigger: ValueNotifier(false)));
 SwitchInforNotifier si = SwitchInforNotifier(value: SwitchInfo(tryb: ValueNotifier(false)));
 FollowedModeNotifier fn = FollowedModeNotifier(value: FollowedMode(tryb: ValueNotifier<String>("Posts")));
 SwitchNotifier sn =SwitchNotifier(value: Switch(tryb: ValueNotifier<String>("My Profile")));
 FollowedUser followedUser = FollowedUser(fakePosts);
-PMuserNotifier pm = PMuserNotifier(value: PMuser(tryb: ValueNotifier<String>(user.pms[0].who)));
+PMuserNotifier pm = PMuserNotifier(value: PMuser(tryb: ValueNotifier<DatabaseReference>(FirebaseDatabase.instance.ref().child("emptyQuery"))));
 
 
 AppInfo appInfo = AppInfo();
@@ -318,7 +307,7 @@ class ProfilePage extends StatelessWidget{
                       padding: EdgeInsets.only(left:20),
                       child: CircleAvatar(         
                         backgroundImage: NetworkImage(FirebaseAuth.instance.currentUser!.photoURL!),
-                        //backgroundImage: AssetImage("assets/defaultAvatar.jpg"),
+                        
                       )
                     ),
                     Padding(
@@ -459,14 +448,11 @@ class FadingText extends StatefulWidget{
 
 
 class FadingTextState extends State<FadingText> with SingleTickerProviderStateMixin{
-  double opacity = 0.0;
-  int counter = 0; 
   AnimationController? _controller;
   Animation<double>? _animation;
 
   @override
   void initState(){
-    counter++;
     _controller = AnimationController(
       vsync: this,
       duration: Duration(seconds: 5),
@@ -525,6 +511,7 @@ class _Display extends State<Display>{
         'rid': subString
         };
         ref.push().set(followData);
+        //AddEmptyConvo
       }
       initFollow = true;
       Navigator.of(context).pop();
@@ -738,6 +725,7 @@ class _Display extends State<Display>{
             itemBuilder: (BuildContext context,DataSnapshot snapshot,Animation animation,int index) {
               Map post = snapshot.value as Map;
               post['key'] = snapshot.key;
+              post['ukey'] = userKey;
               return Post(post,mode); 
             })
             
@@ -1334,11 +1322,6 @@ class _ProfileButton extends State<ProfileButton>{
 }
 
 class Post extends StatefulWidget{
-  //final String? title;
-  //final AssetImage image = AssetImage("assets/shrooms.jpg");
-  //final String? description;
-  //List<Comment> comments;
-  //Post(this.title,this.description,this.comments);
   final Map post;
   final String mode;
   Post(this.post,this.mode);
@@ -1348,9 +1331,12 @@ class Post extends StatefulWidget{
 }
 
 class _Post extends State<Post>{
+  
+  
   @override
   Widget build(BuildContext context){
     return
+    
     Padding(
       padding: EdgeInsets.only(top: 10),
       child:Row(
@@ -1372,9 +1358,6 @@ class _Post extends State<Post>{
       widget.mode == "P"?
       Column(
         children: [
-          
-           //alignment: index.isEven ? Alignment.centerLeft : Alignment.centerRight,
-             
              Container(
               width: MediaQuery.of(context).size.width-75,
               decoration: BoxDecoration(
@@ -1384,7 +1367,6 @@ class _Post extends State<Post>{
                   Expanded(
                   flex:8,
                   child:Text(
-                  //'${widget.title}',
                   widget.post['title'],
                   style: TextStyle(
                     fontSize: 20
@@ -1403,7 +1385,6 @@ class _Post extends State<Post>{
               Container(
                 height: 250,
                 width: MediaQuery.of(context).size.width-75,
-                //child:Image.asset("assets/forest.jpg",fit: BoxFit.fill,),
                 child: Image.network(
                   widget.post['url'],
                   fit:BoxFit.fill,
@@ -1411,26 +1392,44 @@ class _Post extends State<Post>{
               ),
               Container(
                 width: MediaQuery.of(context).size.width-75,
-
                 child: Text(
-                  //"${widget.description}",
                   widget.post['description'],
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 20
                   )
                 )
               ),
-            // TODO: Komentarze
-            //  Container(
-            //   child: Padding(padding: EdgeInsets.fromLTRB(25, 10, 0, 0),child:ListView.builder(
-            //     scrollDirection: Axis.vertical,
-            //     shrinkWrap: true,
-            //     itemCount: widget.comments.length,
-            //     itemBuilder: (context, index){
-            //       return Text("${widget.comments[index].name}: ${widget.comments[index].value}");
-            //     },
-            //   )
-            //  ))
+              Container(
+                width: MediaQuery.of(context).size.width-75,
+                child: Row(
+                  children: [
+                    IconButton(
+                      onPressed: (){
+                        Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => CommnentSection(
+                            title: widget.post["title"],
+                            description: widget.post["description"],
+                            commentsLink: FirebaseDatabase.instance
+                              .ref()
+                              .child('users')
+                              .child(widget.post['ukey'])
+                              .child('posts')
+                              .child(widget.post['key'])
+                              .child("comments"),
+                            imageLink: widget.post["url"],
+                          ),
+                          )
+                      );
+                      },
+                      icon:const Icon(Icons.add_outlined)),
+                      const Text(
+                        "Go to comment section"
+                      ),
+                  ],) 
+              )
+    
           
         ],
     ):
@@ -1475,7 +1474,6 @@ class _FollowUser extends State<FollowUser>{
                       );
                     },
                     child:Expanded(
-                      
                       child: Row(children: [
                     CircleAvatar(backgroundImage: AssetImage("assets/defaultAvatar.jpg"),),
                     Padding(
@@ -1618,6 +1616,7 @@ class FollowedProfileState extends State<FollowedProfile>{
                           itemBuilder: (BuildContext context, DataSnapshot  snapshot, Animation animation, int index){
                             Map post = snapshot.value as Map;
                             post['key'] = snapshot.key;
+                            post['ukey'] = widget.klucz;
                             return Post(post,"P");
                           },
                         )
@@ -1718,99 +1717,4 @@ class _FollowedButton extends State<FollowedButton>{
 
 
 
-class PMPage extends StatelessWidget{
-  @override
-  Widget build(BuildContext context){
-    
-    return Row(
-      children: [
-        Expanded(
-          flex:1,
-          child: Container(
-            decoration: BoxDecoration(
-              border: Border(
-                right: BorderSide(
-                  color: Colors.black,
-                  width: 1
-                )
-              )
-            ),
-            //TODO: rebuild on refresh
-            child: ListView(
-              children: [
-                for(int i=0;i<user.pms.length;i++) GestureDetector(
-                  onTap: (){
-                    
-                    pm.value.tryb.value = user.pms[i].who;
-                  
-                    
-                  },
-                  child:Padding(
-                    padding: EdgeInsets.fromLTRB(5, 10, 0, 0),
-                    child:Container(
-                      child:Row(
-                        children: [
-                          CircleAvatar(
-                            backgroundImage: AssetImage("assets/defaultAvatar.jpg"),
-                          ),
-                          Padding(
-                            padding: EdgeInsets.only(left:5),
-                            child: Text("@${user.pms[i].who}")
-                          )
-                        ],
-                      )
-                    )
-                  )
-                ),
-              ],
-            )
-          )
-        ),
-        Expanded(
-          flex:2,
-          child: Container(
-            child: 
-              ValueListenableBuilder(
-                valueListenable: pm.value.tryb,
-                builder: (BuildContext context, String value, Widget? child){
-                  print(pm.value.tryb.value);
-                  var lista = user.pms[user.pms.indexWhere((element) => element.who == pm.value.tryb.value)];
-                  return ListView(
-                    children: [    
-                      for(int i=0; i<lista.conversation.length;i++) 
-                      Padding(
-                        padding: EdgeInsets.only(top:10),
-                        child:Row(
-                          mainAxisAlignment: lista.conversation[i].sender == user.name? MainAxisAlignment.end : MainAxisAlignment.start,
-                          children: [
-                            Padding(
-                              padding: EdgeInsets.only(left:lista.conversation[i].sender == user.name?0:5,right:lista.conversation[i].sender == user.name?5:0),
-                              child: Container(
-                                width: 100,
-                                decoration: BoxDecoration(
-                                  color: Color.fromARGB(255, 42, 3, 150),
-                                  borderRadius: BorderRadius.circular(5)
-                                ),
-                                child: Text(
-                                  "  ${lista.conversation[i].msg}",
-                                  style: TextStyle(
-                                    fontSize: 20,
-                                    color: Colors.white,
-                                  ),
-                                  )
-                              )
-                          )
-                          ]
-                        )
-                        )
-                    ]
-                  
-                  );
-                },
-              ),
-          ),
-        )
-      ],
-    );
-  }
-}
+

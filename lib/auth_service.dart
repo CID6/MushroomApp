@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_application_1/main.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:firebase_database/firebase_database.dart';
+import 'private_messaging.dart';
 
 String getUid(String snapshot){
   const start = "{";
@@ -82,6 +83,8 @@ class AuthService{
   }
 
   signOut() async{
+    pm.value.tryb.value = FirebaseDatabase.instance.ref().child("emptyQuery");
+    recipient = "";
     userExists = false;
     await GoogleSignIn().signOut();
     FirebaseAuth.instance.signOut();
