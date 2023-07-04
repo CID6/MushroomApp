@@ -91,7 +91,7 @@ class _CommnentSection extends State<CommnentSection>{
               post['key'] = snapshot.key;
               return ListTile(
                 leading: CircleAvatar(
-                  backgroundImage: AssetImage("assets/defaultAvatar.jpg"),
+                  backgroundImage: NetworkImage(post['avatarUrl']),
                 ),
                 title: Text("@${post["Username"]}:   ${post["Text"]}"),
                 trailing: loggedUser["name"]==post["Text"]?IconButton(
@@ -127,6 +127,7 @@ class _CommnentSection extends State<CommnentSection>{
                         "Username": loggedUser["name"],
                         "uid": userKey,
                         "Text": commentController.text,
+                        "avatarUrl": loggedUser['avatarUrl'].toString().trim(),
                       };
                       widget.commentsLink.push().set(comment);
                       commentController.clear();

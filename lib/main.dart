@@ -236,38 +236,43 @@ class _LoginPage extends State<LoginPage>{
               Expanded(child: ButtonWidget("Picture","P")),
               Expanded(child: ButtonWidget("Social","S")),
             ],),
-            Column(
+            Expanded(
+            child:Column(
+              mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Padding(
-                 padding:const EdgeInsets.fromLTRB(0, 100, 0, 16), // TODO: change TOP with phone res
-                  child: Container(
-                    width: MediaQuery.of(context).size.width - 100,
-                      child: TextField(
-                        controller: myLoginController,
-                        decoration: const InputDecoration(
-                          filled: true,
-                          fillColor: Colors.white,
-                          border: OutlineInputBorder(),
-                          hintText: "Username",
-                )))),
-                Padding(
-                 padding:const EdgeInsets.fromLTRB(0, 16, 0, 16), // TODO: change TOP with phone res
-                  child: Container(
-                    width: MediaQuery.of(context).size.width - 100,
-                      child: TextField(
-                        controller: myPasswordController,
-                        decoration: const InputDecoration(
-                          filled: true,
-                          fillColor: Colors.white,
-                          border: OutlineInputBorder(),
-                          hintText: "Password",
-                )))),
-                ButtonLogin("Log in","PR",myLoginController,myPasswordController),
-                ButtonLogin("Register","R"),
-                ButtonLogin("Google", "G")
+                
+                // Padding(
+                //  padding:const EdgeInsets.fromLTRB(0, 100, 0, 16), // TODO: change TOP with phone res
+                //   child: Container(
+                //     width: MediaQuery.of(context).size.width - 100,
+                //       child: TextField(
+                //         controller: myLoginController,
+                //         decoration: const InputDecoration(
+                //           filled: true,
+                //           fillColor: Colors.white,
+                //           border: OutlineInputBorder(),
+                //           hintText: "Username",
+                // )))),
+                // Padding(
+                //  padding:const EdgeInsets.fromLTRB(0, 16, 0, 16), // TODO: change TOP with phone res
+                //   child: Container(
+                //     width: MediaQuery.of(context).size.width - 100,
+                //       child: TextField(
+                //         controller: myPasswordController,
+                //         decoration: const InputDecoration(
+                //           filled: true,
+                //           fillColor: Colors.white,
+                //           border: OutlineInputBorder(),
+                //           hintText: "Password",
+                // )))),
+                // ButtonLogin("Log in","PR",myLoginController,myPasswordController),
+                
+                ButtonLogin("Google", "G"),
+                SizedBox(height: 150,),
+                ButtonLogin("Register","R")
               ],
-            )
+            ))
         ]),
       ));
   }
@@ -281,6 +286,7 @@ class ProfilePage extends StatelessWidget{
   Widget build(BuildContext context){
     List<String> items = ["Log out","Edit profile"];
     String? selected = "";
+    print("${FirebaseAuth.instance.currentUser!.displayName!}:     ${FirebaseAuth.instance.currentUser!.photoURL!}");
     return Container(
       child: Scaffold(
         backgroundColor: Colors.transparent,
@@ -430,7 +436,7 @@ class _InfoButton extends State<InfoButton>{
         style: TextStyle(
           fontSize: 20
         ),
-        textAlign: TextAlign.left,
+        textAlign: widget.name != "Send"? TextAlign.left: TextAlign.center,
       )
     );
   }
@@ -508,7 +514,8 @@ class _Display extends State<Display>{
         .child(userKey).child('follows');
         var followData = {
         'name': followedName.text,
-        'rid': subString
+        'rid': subString,
+        'avatarUrl': (event.snapshot.value as Map)[subString]['avatarUrl'].toString().trim(),
         };
         ref.push().set(followData);
         //AddEmptyConvo
@@ -824,15 +831,15 @@ class RegisterPage extends StatefulWidget{
 
 
 class _RegisterPage extends State<RegisterPage>{
-  final NameController = TextEditingController();
-  final PasswordController = TextEditingController();
-  final ConfirmController = TextEditingController();
+  final BirthController = TextEditingController();
+  final FavMushController = TextEditingController();
+  final DescController = TextEditingController();
 
   @override
   void dispose(){
-    NameController.dispose();
-    PasswordController.dispose();
-    ConfirmController.dispose();
+    BirthController.dispose();
+    FavMushController.dispose();
+    DescController.dispose();
     super.dispose();
   }
 
@@ -868,12 +875,12 @@ class _RegisterPage extends State<RegisterPage>{
             child: Container(
               width: MediaQuery.of(context).size.width - 100,
               child: TextField(
-                controller: NameController,
+                controller: BirthController,
                 decoration: const InputDecoration(
                   filled: true,
                   fillColor: Colors.white,
                   border: OutlineInputBorder(),
-                  hintText: "Username",
+                  hintText: "Date of Birth (dd.mm.yyyy)",
                 )
               ),
               ),
@@ -883,12 +890,12 @@ class _RegisterPage extends State<RegisterPage>{
               child: Container(
                 width: MediaQuery.of(context).size.width - 100,
                 child: TextField(
-                  controller: PasswordController,
+                  controller: FavMushController,
                   decoration: const InputDecoration(
                     filled: true,
                     fillColor: Colors.white,
                     border: OutlineInputBorder(),
-                    hintText: "Password",
+                    hintText: "Tell us your favourite mushroom",
                   ),
                 )
               )
@@ -898,17 +905,17 @@ class _RegisterPage extends State<RegisterPage>{
                 child: Container(
                   width: MediaQuery.of(context).size.width-100,
                   child: TextField(
-                    controller: ConfirmController,
+                    controller: DescController,
                     decoration: const InputDecoration(
                       filled: true,
                       fillColor: Colors.white,
                       border: OutlineInputBorder(),
-                      hintText: "Confirm Password",
+                      hintText: "Tell us something about you",
                     ),
                   ),
                 )
                 )
-              ,RegisterButton(NameController, PasswordController, ConfirmController)
+              ,RegisterButton(BirthController, FavMushController, DescController)
               ,BackButton()
             ],
       ),
@@ -950,10 +957,10 @@ class Kolumna4 extends StatelessWidget{
 
 
 class RegisterButton extends StatefulWidget{
-  final TextEditingController name;
-  final TextEditingController password;
-  final TextEditingController passwordc;
-  RegisterButton(this.name,this.password,this.passwordc);
+  final TextEditingController birth;
+  final TextEditingController favmush;
+  final TextEditingController desc;
+  RegisterButton(this.birth,this.favmush,this.desc);
 
   @override
   _RegisterButton createState() => _RegisterButton();
@@ -968,12 +975,10 @@ class _RegisterButton extends State<RegisterButton>{
     var userData = {
       'name': FirebaseAuth.instance.currentUser!.displayName,
       'uid': FirebaseAuth.instance.currentUser!.uid,
-      'favMushroom':'',
-      'dateOfBirth':'',
-      'description':'',
-      // 'posts': {},
-      // 'follows': {},
-      // 'pms': {},
+      'favMushroom':widget.favmush.text,
+      'dateOfBirth':widget.birth.text,
+      'description':widget.desc.text,
+      'avatarUrl':FirebaseAuth.instance.currentUser!.photoURL.toString().trim(),
     };
     db.push().set(userData);
     Navigator.push(
@@ -991,47 +996,22 @@ class _RegisterButton extends State<RegisterButton>{
       padding: EdgeInsets.fromLTRB(0, 16, 0, 16),
       child: GestureDetector(
         onTap: (){
-          // if(widget.name.text == "" || widget.password == "" || widget.passwordc == ""){
-          //   showDialog(
-          //       context: context, 
-          //       builder: (BuildContext context) => AlertDialog(
-          //         title: const Text("ERROR"),
-          //         content: const Text("Fill in all the fields"),
-          //         actions: <Widget>[
-          //           TextButton(
-          //             onPressed: () => Navigator.pop(context,"OK"),
-          //             child: const Text("OK"))
-          //         ],
-          //       )
-          //       );
-          //     return; 
-          // }
-          // if(widget.password.text != widget.passwordc.text){
-          //   showDialog(
-          //       context: context, 
-          //       builder: (BuildContext context) => AlertDialog(
-          //         title: const Text("ERROR"),
-          //         content: const Text("Passwords must match"),
-          //         actions: <Widget>[
-          //           TextButton(
-          //             onPressed: () => Navigator.pop(context,"OK"),
-          //             child: const Text("OK"))
-          //         ],
-          //       )
-          //       );
-          //     return; 
-          // }
-          //TODO: Registerfunc
+          if(widget.birth.text == "" || widget.favmush.text == "" || widget.desc.text == ""){
+            showDialog(
+                context: context, 
+                builder: (BuildContext context) => AlertDialog(
+                  title: const Text("ERROR"),
+                  content: const Text("Fill in all the fields"),
+                  actions: <Widget>[
+                    TextButton(
+                      onPressed: () => Navigator.pop(context,"OK"),
+                      child: const Text("OK"))
+                  ],
+                )
+                );
+              return; 
+          }
           Register();
-          
-
-
-          // Navigator.push(
-          //     context,
-          //     MaterialPageRoute(
-          //       builder: (context) => ProfilePage(),
-          //       )
-          //   );
         },
         child: Container(
           height: 50,
@@ -1401,11 +1381,9 @@ class _Post extends State<Post>{
               ),
               Container(
                 width: MediaQuery.of(context).size.width-75,
-                child: Row(
-                  children: [
-                    IconButton(
-                      onPressed: (){
-                        Navigator.push(
+                child: GestureDetector(
+                  onTap: (){
+                    Navigator.push(
                         context,
                         MaterialPageRoute(
                           builder: (context) => CommnentSection(
@@ -1422,12 +1400,14 @@ class _Post extends State<Post>{
                           ),
                           )
                       );
-                      },
-                      icon:const Icon(Icons.add_outlined)),
+                  },
+                  child:Row(
+                  children: [
+                    Icon(Icons.add_outlined),
                       const Text(
                         "Go to comment section"
                       ),
-                  ],) 
+                  ],)) 
               )
     
           
@@ -1475,7 +1455,8 @@ class _FollowUser extends State<FollowUser>{
                     },
                     child:Expanded(
                       child: Row(children: [
-                    CircleAvatar(backgroundImage: AssetImage("assets/defaultAvatar.jpg"),),
+                    //CircleAvatar(backgroundImage: AssetImage("assets/defaultAvatar.jpg")),
+                    CircleAvatar(backgroundImage: NetworkImage(widget.userData['avatarUrl'])),
                     Padding(
                       padding: EdgeInsets.only(left:5),
                       child:Text("@${widget.userData['name']}")

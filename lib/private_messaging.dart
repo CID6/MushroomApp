@@ -253,7 +253,6 @@ class _PMPage extends State<PMPage>{
               child: IconButton(
                 icon: const Icon(Icons.send_rounded),
                 onPressed: (){
-                  var stop = 1;
                   if(pm.value.tryb.value.key.toString() != FirebaseDatabase.instance.ref().child("emptyQuery").key.toString()){ 
                     var message = {
                       "from": loggedUser["name"],
