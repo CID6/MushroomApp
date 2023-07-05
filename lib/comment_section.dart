@@ -39,7 +39,7 @@ class _CommnentSection extends State<CommnentSection>{
       backgroundColor: Colors.teal,
       appBar: AppBar(
         automaticallyImplyLeading: false,
-        title: Text(widget.title),
+        title: Text("Title: ${widget.title}"),
         actions: [
           IconButton(
             onPressed: (){

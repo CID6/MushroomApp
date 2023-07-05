@@ -137,6 +137,7 @@ class UserNotFoundNotifier extends ValueNotifier<UserNotFound>{
 }
 
 ConvNotifier cn = ConvNotifier(value: Conv(tryb: ValueNotifier(false)));
+RecipientNotifier recipient = RecipientNotifier(value: Recipient(tryb: ValueNotifier("")));
 UserNotFoundNotifier unfn = UserNotFoundNotifier(value: UserNotFound(trigger: ValueNotifier(false)));
 SwitchInforNotifier si = SwitchInforNotifier(value: SwitchInfo(tryb: ValueNotifier(false)));
 FollowedModeNotifier fn = FollowedModeNotifier(value: FollowedMode(tryb: ValueNotifier<String>("Posts")));
@@ -228,7 +229,8 @@ class _LoginPage extends State<LoginPage>{
       child: Scaffold(
         backgroundColor: Colors.transparent,
         appBar: AppBar(
-          title: Text("data")
+          title: const Text("Mushroom App"),
+           automaticallyImplyLeading: false,
         ),
         body: Column(
           children: [
@@ -291,7 +293,8 @@ class ProfilePage extends StatelessWidget{
       child: Scaffold(
         backgroundColor: Colors.transparent,
         appBar: AppBar(
-          title: Text("data"),
+          title: const Text("Mushroom App"),
+           automaticallyImplyLeading: false,
         ),
         body:Column(
           children: [
@@ -721,8 +724,8 @@ class _Display extends State<Display>{
 
         return Column(
         children: [
-          Container(child:
           Expanded(child:
+         // Container(child:
           
           FirebaseAnimatedList(
             shrinkWrap: true,
@@ -736,9 +739,10 @@ class _Display extends State<Display>{
               return Post(post,mode); 
             })
             
-          )
+          //)
         ),
-        
+       
+       
          Padding(
           padding: const EdgeInsets.fromLTRB(0, 3, 0, 3),
           child: GestureDetector(
@@ -855,7 +859,8 @@ class _RegisterPage extends State<RegisterPage>{
       ),
       child:Scaffold(
         appBar: AppBar(
-          title: Text("data"),
+          title: const Text("Mushroom App"),
+          automaticallyImplyLeading: false,
         ),
         backgroundColor: Colors.transparent,
       body:Column(
@@ -933,7 +938,8 @@ class Kolumna4 extends StatelessWidget{
   Widget build(BuildContext context){
     return Scaffold(
       appBar: AppBar(
-        title: Text("data"),
+        title: const Text("Mushroom App"),
+        automaticallyImplyLeading: false,
       ),
      body:Column(children: [
     Row(children: [
@@ -1141,14 +1147,6 @@ class _ButtonLogin extends State<ButtonLogin>{
                 );
                 return;
             }
-
-            
-            // Navigator.push(
-            //   context,
-            //   MaterialPageRoute(
-            //     builder: (context) => ProfilePage(),
-            //     )
-            // ); 
           }
         },
         
@@ -1164,10 +1162,11 @@ class _ButtonLogin extends State<ButtonLogin>{
             ),
             borderRadius: BorderRadius.circular(10)
           ),
-          child: Align(
+          child:
+            Align(
             alignment: Alignment.center,
             child: Text(
-              '${widget.name}',
+              widget.name,
               textAlign: TextAlign.center,
               )
             )
@@ -1328,7 +1327,7 @@ class _Post extends State<Post>{
       
       width: MediaQuery.of(context).size.width-25,
       decoration: BoxDecoration(
-        color: Color.fromARGB(255, 145, 142, 133),
+        color: Colors.blueGrey,
         border: Border.all(
           width: 5,
           color: Colors.red,
@@ -1341,14 +1340,15 @@ class _Post extends State<Post>{
              Container(
               width: MediaQuery.of(context).size.width-75,
               decoration: BoxDecoration(
-                color: Colors.white
+                color: Colors.teal,
+                border: Border.all(color:Colors.black,width:1),
               ),
                 child:Row(children:[
                   Expanded(
                   flex:8,
                   child:Text(
-                  widget.post['title'],
-                  style: TextStyle(
+                  "Title: ${widget.post['title']}",
+                  style: const TextStyle(
                     fontSize: 20
                   ),
                   ),),
@@ -1363,6 +1363,12 @@ class _Post extends State<Post>{
                 ]),
               ),
               Container(
+                decoration: const BoxDecoration(
+                  border: Border(
+                    left:BorderSide(color: Colors.black,width: 1),
+                    right: BorderSide(color: Colors.black, width:1)
+                  )
+                ),
                 height: 250,
                 width: MediaQuery.of(context).size.width-75,
                 child: Image.network(
@@ -1370,17 +1376,32 @@ class _Post extends State<Post>{
                   fit:BoxFit.fill,
                 ),
               ),
-              Container(
+                Container(
+                decoration: BoxDecoration(
+                  color: Colors.teal,
+                  border: Border.all(
+                    color: Colors.black,
+                    width: 1),
+                  borderRadius:const BorderRadius.only(
+                    bottomLeft: Radius.circular(8),
+                    bottomRight: Radius.circular(8)
+                  )
+                ),
                 width: MediaQuery.of(context).size.width-75,
+                child:Padding(
+                  padding:const EdgeInsets.fromLTRB(5, 3, 5, 5),
                 child: Text(
-                  widget.post['description'],
+                  "Desc: ${widget.post['description']}",
                   style: const TextStyle(
                     fontSize: 20
                   )
-                )
+                ))
               ),
               Container(
                 width: MediaQuery.of(context).size.width-75,
+                
+                child:Padding(
+                  padding: const EdgeInsets.fromLTRB(0, 3, 0, 3),
                 child: GestureDetector(
                   onTap: (){
                     Navigator.push(
@@ -1407,7 +1428,7 @@ class _Post extends State<Post>{
                       const Text(
                         "Go to comment section"
                       ),
-                  ],)) 
+                  ],))) 
               )
     
           
@@ -1522,7 +1543,8 @@ class FollowedProfileState extends State<FollowedProfile>{
     return Container(
       child: Scaffold(
         appBar: AppBar(
-          title: Text("data"),
+          title: const Text("Mushroom App"),
+          automaticallyImplyLeading: false,
         ),
         body: Column(
           children: [
@@ -1543,7 +1565,7 @@ class FollowedProfileState extends State<FollowedProfile>{
                     Padding(
                       padding: EdgeInsets.only(left: 20),
                       child: CircleAvatar(
-                        backgroundImage: AssetImage("assets/defaultAvatar.jpg"),
+                        backgroundImage: NetworkImage(widget.mapa["avatarUrl"].toString().trim()),
                       ),
                     ),
                     Padding(
@@ -1580,7 +1602,7 @@ class FollowedProfileState extends State<FollowedProfile>{
             ),
             ),
             Expanded(
-              flex:8,
+              flex:10,
               child: Container(
                 child: ValueListenableBuilder(
                   valueListenable: fn.value.tryb,
@@ -1601,9 +1623,11 @@ class FollowedProfileState extends State<FollowedProfile>{
                             return Post(post,"P");
                           },
                         )
-                        :Column(
+                        :SingleChildScrollView(
+                        child:Column(
                           children: [
                             //TODO: ScrollView
+                            
                             FollowText("Username:","M"),
                             FollowText(widget.mapa['name']),
                             FollowText("Date of Birth:","M"),
@@ -1611,10 +1635,10 @@ class FollowedProfileState extends State<FollowedProfile>{
                             FollowText("Favourite Mushroom","M"),
                             FollowText(widget.mapa['favMushroom']),
                             FollowText("Description:","M"),
-                            FollowText(widget.mapa['description'],"B"),
+                            FollowText(widget.mapa['description'],"M"),
                             
                           ],),
-                    );
+                    ));
                   },
                 ),
               )
@@ -1634,10 +1658,10 @@ class FollowText extends StatelessWidget{
   @override
   Widget build(BuildContext context){
     return Padding(
-      padding: EdgeInsets.fromLTRB(0, 20, 0, 0),
+      padding: const EdgeInsets.fromLTRB(0, 20, 0, 0),
           child:Container(
             width: MediaQuery.of(context).size.width -100,
-            height:big!="B"?35:200,
+            //height:big!="B"?35:200,
         
             decoration: BoxDecoration(
               color: Colors.white,
@@ -1647,8 +1671,10 @@ class FollowText extends StatelessWidget{
               )
             ),
               alignment: align=="M"?Alignment.center:null,
-              child:Text(
-              name,
+              child:Padding(
+                padding:  EdgeInsets.fromLTRB(align=="M"?0:5, 7, 0, 7),
+                child:Text(
+              name,)
      )),
     );
   }

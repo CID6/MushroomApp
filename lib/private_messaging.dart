@@ -8,6 +8,22 @@ import 'package:firebase_database/firebase_database.dart';
 
 var initConv = true;
 
+class Recipient{
+  ValueNotifier<String> tryb = ValueNotifier("");
+  Recipient({required this.tryb});
+}
+
+class RecipientNotifier extends ValueNotifier<Recipient>{
+  RecipientNotifier({required Recipient value}): super(value);
+  void change(String tryb){
+    if(value.tryb.value!=tryb){
+      value.tryb.value = tryb;
+      notifyListeners();
+    }
+  }
+}
+
+
 class PMuser{
   ValueNotifier<DatabaseReference> tryb = ValueNotifier(FirebaseDatabase.instance.ref().child("emptyQuery"));
   PMuser({required this.tryb});
@@ -38,7 +54,7 @@ class ConvNotifier extends ValueNotifier<Conv>{
 
 
 Key _klucz = Key(DateTime.now().millisecondsSinceEpoch.toString());
-String recipient = "";
+//String recipient = "";
 
 
 class PMPage extends StatefulWidget{
@@ -87,17 +103,25 @@ class _PMPage extends State<PMPage>{
             alignment: Alignment.topCenter,
             decoration: const BoxDecoration(
             border: Border(right: BorderSide(width: 2,color: Colors.black))),
-                child: FirebaseAnimatedList(
+            child: ValueListenableBuilder(
+              valueListenable: recipient.value.tryb,
+              builder: (BuildContext context, String value, Widget? child){
+                return 
+                FirebaseAnimatedList(
                 shrinkWrap: true,
                 physics: const ClampingScrollPhysics(),
                 query: FirebaseDatabase.instance.ref().child('users').child(userKey).child('conversations'), 
                 itemBuilder: (BuildContext context,DataSnapshot snapshot,Animation animation,int index) {
                   Map post = snapshot.value as Map;
                   post['key'] = snapshot.key;
-                  return  Padding(
+                  return Padding(
                     padding:const EdgeInsets.fromLTRB(5, 10, 5, 0),
                     child:Container(
                       decoration: BoxDecoration(
+                        border: recipient.value.tryb.value==post["name"]?Border.all(
+                          color: Colors.red,
+                          width: 2
+                      ):null,
                         color: Colors.grey,
                         borderRadius: BorderRadius.circular(10)
                       ),
@@ -107,11 +131,13 @@ class _PMPage extends State<PMPage>{
                       setState(() {
                         pm.value.tryb.value = FirebaseDatabase.instance.ref().child('users').child(userKey).child("conversations").child(post["key"]).child('messages');
                         _klucz = Key(DateTime.now().millisecondsSinceEpoch.toString());
-                        recipient = post['name'];
+                        recipient.value.tryb.value = post['name'];
                       });
                       
                     },
-                  )));}))), 
+                  )));
+                  });
+                }))), 
           
           
           Expanded(flex:2,child: Container(decoration:const BoxDecoration(color: Colors.blue),
@@ -120,9 +146,10 @@ class _PMPage extends State<PMPage>{
                 child: Container(
                   alignment: Alignment.centerLeft,
                   decoration: const BoxDecoration(
-                  color: Colors.teal
+                  color: Colors.teal,
+                  border: Border(bottom: BorderSide(width: 2,color: Colors.black))
                   ),
-                  child: Text(" Recipient: ${recipient}",
+                  child: Text(" Recipient: ${recipient.value.tryb.value}",
                   ),)),
               Expanded(flex: 10,child:Container(
                 child:ValueListenableBuilder(
@@ -144,18 +171,21 @@ class _PMPage extends State<PMPage>{
                               Padding(
                                 padding: EdgeInsets.only(left:post["from"]==loggedUser["name"]?0:5,right:post["from"]==loggedUser["name"]?5:0),
                                 child: Container(
-                                  width: 100,
+                                  //width: 100,
                                   decoration: BoxDecoration(
                                     color: const Color.fromARGB(255, 42, 3, 150),
                                     borderRadius: BorderRadius.circular(5)
                                   ),
-                                  child: Text(
-                                    post["text"],
-                                    style: const TextStyle(
-                                      fontSize: 20,
-                                      color: Colors.white
-                                    )
-                                  ),
+                                  child:Padding( 
+                                    padding: const EdgeInsets.fromLTRB(10, 5, 10, 5),
+                                    child: Text(
+                                      post["text"],
+                                      style: const TextStyle(
+                                        fontSize: 20,
+                                        color: Colors.white
+                                      )
+                                    ),
+                                  )
                                 ),
                               )
                             ],

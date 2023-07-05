@@ -3,6 +3,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'main.dart';
 import 'package:flutter_application_1/main.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:firebase_database/firebase_database.dart';
@@ -84,8 +85,9 @@ class AuthService{
 
   signOut() async{
     pm.value.tryb.value = FirebaseDatabase.instance.ref().child("emptyQuery");
-    recipient = "";
+    recipient.value.tryb.value = "";
     userExists = false;
+    initConv = true;
     await GoogleSignIn().signOut();
     FirebaseAuth.instance.signOut();
   }
